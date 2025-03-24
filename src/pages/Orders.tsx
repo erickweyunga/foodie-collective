@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { FileText, Copy } from 'lucide-react';
+import { FileText, Copy, Clipboard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface OrderItem {
@@ -13,8 +13,13 @@ interface OrderItem {
   timestamp: string;
 }
 
+interface FoodCount {
+  [key: string]: number;
+}
+
 const Orders = () => {
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [foodCounts, setFoodCounts] = useState<FoodCount>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,6 +46,16 @@ const Orders = () => {
     );
     
     setOrders(allOrders);
+    
+    // Calculate food counts
+    const counts: FoodCount = {};
+    allOrders.forEach(order => {
+      order.items.forEach(item => {
+        counts[item] = (counts[item] || 0) + 1;
+      });
+    });
+    
+    setFoodCounts(counts);
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -78,6 +93,31 @@ const Orders = () => {
       });
   };
 
+  const copySummaryToClipboard = () => {
+    let text = "Neurotech.Africa - Muhtasari wa Chakula\n\n";
+    
+    Object.entries(foodCounts)
+      .sort(([, countA], [, countB]) => countB - countA)
+      .forEach(([item, count]) => {
+        text += `${item} ${count}\n`;
+      });
+    
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        toast({
+          title: "Copied to clipboard",
+          description: "Food summary has been copied to your clipboard",
+        });
+      })
+      .catch(() => {
+        toast({
+          title: "Failed to copy",
+          description: "Could not copy summary to clipboard",
+          variant: "destructive",
+        });
+      });
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
@@ -92,14 +132,45 @@ const Orders = () => {
             Here's a list of all submitted orders that can be copied and sent as needed
           </p>
           
-          <Button 
-            onClick={copyOrdersToClipboard}
-            className="mb-8"
-            disabled={orders.length === 0}
-          >
-            <Copy className="mr-2 h-4 w-4" /> Copy All Orders
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <Button 
+              onClick={copyOrdersToClipboard}
+              disabled={orders.length === 0}
+            >
+              <Copy className="mr-2 h-4 w-4" /> Copy All Orders
+            </Button>
+            
+            <Button 
+              onClick={copySummaryToClipboard}
+              disabled={orders.length === 0}
+              variant="secondary"
+            >
+              <Clipboard className="mr-2 h-4 w-4" /> Copy Food Summary
+            </Button>
+          </div>
         </motion.div>
+
+        {/* Food Summary Section */}
+        {Object.keys(foodCounts).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="glass-morphism rounded-xl p-6 mb-8"
+          >
+            <h2 className="text-xl font-bold mb-4 text-center">Muhtasari wa Chakula</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {Object.entries(foodCounts)
+                .sort(([, countA], [, countB]) => countB - countA)
+                .map(([item, count]) => (
+                  <div key={item} className="flex justify-between items-center p-3 border rounded-lg bg-background/50">
+                    <span>{item}</span>
+                    <span className="font-semibold">{count}</span>
+                  </div>
+                ))}
+            </div>
+          </motion.div>
+        )}
 
         {orders.length > 0 ? (
           <motion.div

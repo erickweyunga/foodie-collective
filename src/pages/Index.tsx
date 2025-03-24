@@ -7,7 +7,9 @@ import MenuCard from '@/components/MenuCard';
 import OrderSummary from '@/components/OrderSummary';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CalendarDays, Star } from 'lucide-react';
 
 const menuItems = [
   "Wali Nyama",
@@ -16,6 +18,17 @@ const menuItems = [
   "Ugali Nyama",
   "Pilau Nyama Kavu"
 ];
+
+// Get a random menu item for the order of the day
+const getOrderOfTheDay = () => {
+  const date = new Date();
+  // Use the day of the month to select an item (ensures consistency for the day)
+  const dayOfMonth = date.getDate();
+  const index = dayOfMonth % menuItems.length;
+  return menuItems[index];
+};
+
+const orderOfTheDay = getOrderOfTheDay();
 
 const Index = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -33,6 +46,22 @@ const Index = () => {
 
   const handleRemoveItem = (item: string) => {
     setSelectedItems(selectedItems.filter(i => i !== item));
+  };
+
+  const handleAddOrderOfTheDay = () => {
+    if (!selectedItems.includes(orderOfTheDay)) {
+      setSelectedItems([...selectedItems, orderOfTheDay]);
+      toast({
+        title: "Added to your order",
+        description: `${orderOfTheDay} has been added to your selection`,
+      });
+    } else {
+      toast({
+        title: "Already in your order",
+        description: `${orderOfTheDay} is already in your selection`,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -87,6 +116,42 @@ const Index = () => {
           <p className="text-xl text-muted-foreground max-w-xl mx-auto">
             Select your meal preferences from our Tanzania menu
           </p>
+        </motion.div>
+
+        {/* Order of the Day Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="mb-10"
+        >
+          <Card className="border-2 border-primary/20 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-3">
+              <div className="flex items-center gap-2 text-primary mb-1">
+                <CalendarDays className="h-5 w-5" />
+                <CardTitle className="text-xl">Order of the Day</CardTitle>
+              </div>
+              <CardDescription>Today's special recommendation</CardDescription>
+            </CardHeader>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Star className="h-5 w-5 text-amber-500" />
+                  <div>
+                    <p className="font-medium text-lg">{orderOfTheDay}</p>
+                    <p className="text-muted-foreground text-sm">Special for {new Date().toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleAddOrderOfTheDay}
+                  variant="outline" 
+                  className="bg-primary/5 hover:bg-primary/10"
+                >
+                  Add to Order
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-8">

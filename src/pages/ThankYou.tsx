@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, FileText } from 'lucide-react';
 
 interface OrderData {
   name: string;
@@ -94,11 +94,17 @@ const ThankYou = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
-            className="mt-8"
+            className="mt-8 flex justify-center gap-4"
           >
             <Link to="/">
-              <Button variant="outline" className="px-6">
+              <Button variant="outline">
                 Return to Menu
+              </Button>
+            </Link>
+            <Link to="/orders">
+              <Button>
+                <FileText className="mr-2 h-4 w-4" />
+                View All Orders
               </Button>
             </Link>
           </motion.div>

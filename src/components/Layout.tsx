@@ -2,6 +2,7 @@
 import React, { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { FileText } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -25,6 +26,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span className="text-muted-foreground">.Africa</span>
             </Link>
           </motion.div>
+          
+          <nav className="flex items-center space-x-4">
+            <Link 
+              to="/orders" 
+              className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-muted/30 transition-colors"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              View All Orders
+            </Link>
+          </nav>
         </div>
       </header>
       

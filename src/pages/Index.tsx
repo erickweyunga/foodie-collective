@@ -88,7 +88,17 @@ const Index = () => {
     // In a real app, you would submit this data to a backend
     console.log("Order submitted:", { name, items: selectedItems });
     
-    // Store in local storage for the thank you page
+    // Generate a unique key for this order
+    const orderId = `neurotech-order-${Date.now()}`;
+    
+    // Store in localStorage with a unique key
+    localStorage.setItem(orderId, JSON.stringify({ 
+      name, 
+      items: selectedItems,
+      timestamp: new Date().toISOString()
+    }));
+    
+    // Also store in the original key for backwards compatibility
     localStorage.setItem('neurotech-order', JSON.stringify({ 
       name, 
       items: selectedItems,

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import ThankYou from "./pages/ThankYou";
+import Orders from "./pages/Orders";
 import NotFound from "./pages/NotFound";
 
 // Add framer-motion dependency
@@ -22,6 +23,7 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Index />} />
         <Route path="/thank-you" element={<ThankYou />} />
+        <Route path="/orders" element={<Orders />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

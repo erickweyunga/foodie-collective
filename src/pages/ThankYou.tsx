@@ -19,6 +19,7 @@ const ThankYou = () => {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdatedOrder, setIsUpdatedOrder] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -84,6 +85,7 @@ const ThankYou = () => {
   const deleteOrder = async () => {
     if (!orderData) return;
     
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('orders')
@@ -97,6 +99,7 @@ const ThankYou = () => {
           description: "Failed to delete your order. Please try again.",
           variant: "destructive"
         });
+        setIsDeleting(false);
         return;
       }
       
@@ -115,6 +118,8 @@ const ThankYou = () => {
         description: "Failed to delete your order. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -199,9 +204,15 @@ const ThankYou = () => {
                   variant="destructive" 
                   size="sm" 
                   onClick={deleteOrder}
+                  disabled={isDeleting}
                   className="mt-2"
                 >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Order
+                  {isDeleting ? (
+                    <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Delete Order
                 </Button>
               </div>
             </div>

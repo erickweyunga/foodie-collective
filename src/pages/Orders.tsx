@@ -37,6 +37,7 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [adminPhrase, setAdminPhrase] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isFromToday = (dateString: string): boolean => {
@@ -222,6 +223,8 @@ const Orders = () => {
 
   // Function to delete a single order
   const deleteOrder = async (orderId: string, userName: string) => {
+    setDeletingOrderId(orderId);
+    
     try {
       const { error } = await supabase
         .from('orders')
@@ -243,7 +246,11 @@ const Orders = () => {
         description: `${userName}'s order has been deleted.`,
       });
       
-      // We don't need to update the state here since we're listening for real-time DELETE events
+      // Remove the deleted order from the state immediately for better UX
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      // Update food counts after deletion
+      updateFoodCounts(orders.filter(order => order.id !== orderId));
+      
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -251,6 +258,8 @@ const Orders = () => {
         description: "Failed to delete the order. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setDeletingOrderId(null);
     }
   };
 
@@ -266,6 +275,7 @@ const Orders = () => {
     }
 
     setIsDeleteDialogOpen(false);
+    setLoading(true);
     
     try {
       // First, fetch all orders that contain the phrase
@@ -280,6 +290,7 @@ const Orders = () => {
           description: "Failed to search for orders. Please try again.",
           variant: "destructive"
         });
+        setLoading(false);
         return;
       }
       
@@ -288,6 +299,7 @@ const Orders = () => {
           title: "No Orders Found",
           description: "No orders found matching the specified phrase.",
         });
+        setLoading(false);
         return;
       }
       
@@ -303,6 +315,7 @@ const Orders = () => {
           title: "No Matching Orders",
           description: "No orders found with items containing the specified phrase.",
         });
+        setLoading(false);
         return;
       }
       
@@ -324,7 +337,8 @@ const Orders = () => {
         description: `Successfully deleted ${deletedCount} orders containing "${adminPhrase}".`,
       });
       
-      // We don't need to update the state here since we're listening for real-time DELETE events
+      // Refresh orders after bulk deletion
+      fetchOrders();
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -332,6 +346,7 @@ const Orders = () => {
         description: "Failed to delete orders. Please try again.",
         variant: "destructive"
       });
+      setLoading(false);
     }
   };
 
@@ -372,6 +387,7 @@ const Orders = () => {
             <Button
               onClick={fetchOrders}
               variant="outline"
+              disabled={loading}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
@@ -470,8 +486,13 @@ const Orders = () => {
                         variant="destructive" 
                         size="sm" 
                         onClick={() => deleteOrder(order.id, order.name)}
+                        disabled={deletingOrderId === order.id}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingOrderId === order.id ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </TableCell>
                   </TableRow>

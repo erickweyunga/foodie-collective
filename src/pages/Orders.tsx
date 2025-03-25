@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { FileText, Copy, Clipboard, RefreshCw } from 'lucide-react';
+import { FileText, Copy, Clipboard, RefreshCw, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -25,6 +25,15 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const isFromToday = (dateString: string): boolean => {
+    const orderDate = new Date(dateString);
+    const today = new Date();
+    
+    return orderDate.getDate() === today.getDate() &&
+           orderDate.getMonth() === today.getMonth() &&
+           orderDate.getFullYear() === today.getFullYear();
+  };
+
   const fetchOrders = async () => {
     setLoading(true);
     try {
@@ -44,8 +53,10 @@ const Orders = () => {
       }
       
       if (data) {
-        setOrders(data as OrderItem[]);
-        updateFoodCounts(data as OrderItem[]);
+        // Filter to only show today's orders
+        const todaysOrders = data.filter(order => isFromToday(order.timestamp));
+        setOrders(todaysOrders as OrderItem[]);
+        updateFoodCounts(todaysOrders as OrderItem[]);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -87,23 +98,26 @@ const Orders = () => {
         (payload) => {
           const newOrder = payload.new as OrderItem;
           
-          // Add new order to the list
-          setOrders(prevOrders => [newOrder, ...prevOrders]);
-          
-          // Update food counts with the new order
-          setFoodCounts(prevCounts => {
-            const newCounts = { ...prevCounts };
-            newOrder.items.forEach(item => {
-              newCounts[item] = (newCounts[item] || 0) + 1;
+          // Only add the order if it's from today
+          if (isFromToday(newOrder.timestamp)) {
+            // Add new order to the list
+            setOrders(prevOrders => [newOrder, ...prevOrders]);
+            
+            // Update food counts with the new order
+            setFoodCounts(prevCounts => {
+              const newCounts = { ...prevCounts };
+              newOrder.items.forEach(item => {
+                newCounts[item] = (newCounts[item] || 0) + 1;
+              });
+              return newCounts;
             });
-            return newCounts;
-          });
 
-          // Show notification for new order
-          toast({
-            title: "New Order Received",
-            description: `${newOrder.name} just placed an order`,
-          });
+            // Show notification for new order
+            toast({
+              title: "New Order Received",
+              description: `${newOrder.name} just placed an order`,
+            });
+          }
         }
       )
       .subscribe();   
@@ -183,9 +197,13 @@ const Orders = () => {
           transition={{ duration: 0.5 }}
           className="text-center mb-8"
         >
-          <h1 className="text-3xl font-bold mb-4">All Food Orders</h1>
-          <p className="text-muted-foreground mb-6">
+          <h1 className="text-3xl font-bold mb-4">Today's Food Orders</h1>
+          <p className="text-muted-foreground mb-3">
             Orders update in real-time as they are submitted
+          </p>
+          <p className="text-muted-foreground mb-6 flex items-center justify-center">
+            <Calendar className="h-4 w-4 mr-1" />
+            <span>Orders reset at midnight each day</span>
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
@@ -275,7 +293,7 @@ const Orders = () => {
         ) : (
           <div className="text-center p-8 border rounded-lg bg-muted/10">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Orders Yet</h3>
+            <h3 className="text-lg font-medium mb-2">No Orders Today</h3>
             <p className="text-muted-foreground">
               When people submit their orders, they will appear here in real-time.
             </p>

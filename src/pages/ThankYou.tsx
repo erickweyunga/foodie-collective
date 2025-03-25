@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, FileText } from 'lucide-react';
+import { CheckCircle, FileText, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface OrderData {
@@ -16,6 +16,7 @@ interface OrderData {
 const ThankYou = () => {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isUpdatedOrder, setIsUpdatedOrder] = useState(false);
 
   useEffect(() => {
     // First try to get from localStorage for backwards compatibility
@@ -23,6 +24,18 @@ const ThankYou = () => {
     
     if (storedOrder) {
       setOrderData(JSON.parse(storedOrder));
+
+      // Check if this was an update or a new order
+      // We can determine this by seeing if the name field in localStorage
+      // matches the name in the order and was set before this order
+      const storedName = localStorage.getItem('neurotech-name');
+      if (storedName) {
+        const parsedOrder = JSON.parse(storedOrder);
+        if (storedName === parsedOrder.name) {
+          setIsUpdatedOrder(true);
+        }
+      }
+      
       setLoading(false);
     } else {
       // If not in localStorage, try to fetch the most recent order
@@ -33,11 +46,20 @@ const ThankYou = () => {
   const fetchLatestOrder = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Get the stored name if available
+      const storedName = localStorage.getItem('neurotech-name');
+      let query = supabase
         .from('orders')
         .select('*')
         .order('timestamp', { ascending: false })
         .limit(1);
+      
+      // If we have a stored name, filter orders by that name
+      if (storedName) {
+        query = query.eq('name', storedName);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error('Error fetching latest order:', error);
@@ -47,6 +69,7 @@ const ThankYou = () => {
       
       if (data && data.length > 0) {
         setOrderData(data[0] as OrderData);
+        setIsUpdatedOrder(true); // If we're fetching, it's likely an update
       }
     } catch (error) {
       console.error('Error:', error);
@@ -85,7 +108,14 @@ const ThankYou = () => {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <h1 className="text-3xl font-bold mb-4">Thank You for Your Order!</h1>
+          <h1 className="text-3xl font-bold mb-4">
+            {isUpdatedOrder ? "Your Order Has Been Updated!" : "Thank You for Your Order!"}
+          </h1>
+          
+          <p className="text-muted-foreground mb-4 flex items-center justify-center">
+            <Calendar className="h-4 w-4 mr-1" />
+            <span>Orders are valid for today only and will reset at midnight</span>
+          </p>
           
           {loading ? (
             <div className="text-center p-6">
@@ -121,7 +151,7 @@ const ThankYou = () => {
               </div>
               
               <p className="text-sm text-muted-foreground">
-                Your order has been recorded. Thank you for ordering with Neurotech.Africa!
+                Your order has been recorded. You can update your order anytime today if needed.
               </p>
             </div>
           ) : (
@@ -136,7 +166,7 @@ const ThankYou = () => {
           >
             <Link to="/">
               <Button variant="outline">
-                Return to Menu
+                {isUpdatedOrder ? "Edit Order Again" : "Return to Menu"}
               </Button>
             </Link>
             <Link to="/orders">

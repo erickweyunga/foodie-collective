@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, FileText } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OrderData {
   name: string;
@@ -14,13 +15,45 @@ interface OrderData {
 
 const ThankYou = () => {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // First try to get from localStorage for backwards compatibility
     const storedOrder = localStorage.getItem('neurotech-order');
+    
     if (storedOrder) {
       setOrderData(JSON.parse(storedOrder));
+      setLoading(false);
+    } else {
+      // If not in localStorage, try to fetch the most recent order
+      fetchLatestOrder();
     }
   }, []);
+
+  const fetchLatestOrder = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error('Error fetching latest order:', error);
+        setLoading(false);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        setOrderData(data[0] as OrderData);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
@@ -54,7 +87,12 @@ const ThankYou = () => {
         >
           <h1 className="text-3xl font-bold mb-4">Thank You for Your Order!</h1>
           
-          {orderData ? (
+          {loading ? (
+            <div className="text-center p-6">
+              <div className="animate-spin mx-auto h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+              <p>Loading your order details...</p>
+            </div>
+          ) : orderData ? (
             <div className="glass-morphism rounded-xl p-6 mt-8 text-left">
               <p className="text-lg mb-4">
                 <span className="font-semibold">{orderData.name}</span>, your order has been received.

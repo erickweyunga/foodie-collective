@@ -4,10 +4,12 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { FileText, Copy, Clipboard } from 'lucide-react';
+import { FileText, Copy, Clipboard, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OrderItem {
+  id: string;
   name: string;
   items: string[];
   timestamp: string;
@@ -20,42 +22,54 @@ interface FoodCount {
 const Orders = () => {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [foodCounts, setFoodCounts] = useState<FoodCount>({});
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Get all orders from localStorage
-    const allOrders: OrderItem[] = [];
-    
-    // In a real application, this would come from a database
-    // For now, we'll use localStorage and look for all keys that match our format
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('neurotech-order')) {
-        try {
-          const orderData = JSON.parse(localStorage.getItem(key) || '');
-          allOrders.push(orderData);
-        } catch (e) {
-          // Skip invalid entries
-        }
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('timestamp', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching orders:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load orders. Please try again.",
+          variant: "destructive"
+        });
+        return;
       }
-    }
-    
-    // Sort orders by timestamp, newest first
-    allOrders.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    
-    setOrders(allOrders);
-    
-    // Calculate food counts
-    const counts: FoodCount = {};
-    allOrders.forEach(order => {
-      order.items.forEach(item => {
-        counts[item] = (counts[item] || 0) + 1;
+      
+      if (data) {
+        setOrders(data as OrderItem[]);
+        
+        // Calculate food counts
+        const counts: FoodCount = {};
+        data.forEach(order => {
+          order.items.forEach(item => {
+            counts[item] = (counts[item] || 0) + 1;
+          });
+        });
+        
+        setFoodCounts(counts);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load orders. Please try again.",
+        variant: "destructive"
       });
-    });
-    
-    setFoodCounts(counts);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -147,6 +161,13 @@ const Orders = () => {
             >
               <Clipboard className="mr-2 h-4 w-4" /> Copy Food Summary
             </Button>
+
+            <Button
+              onClick={fetchOrders}
+              variant="outline"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            </Button>
           </div>
         </motion.div>
 
@@ -172,7 +193,12 @@ const Orders = () => {
           </motion.div>
         )}
 
-        {orders.length > 0 ? (
+        {loading ? (
+          <div className="text-center p-8">
+            <div className="animate-spin mx-auto h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+            <p>Loading orders...</p>
+          </div>
+        ) : orders.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -188,8 +214,8 @@ const Orders = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order, index) => (
-                  <TableRow key={index}>
+                {orders.map((order) => (
+                  <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.name}</TableCell>
                     <TableCell>
                       <ul className="list-disc pl-5">

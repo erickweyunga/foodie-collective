@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -10,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarDays, Star } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const menuItems = [
   "Wali Nyama",
@@ -64,7 +64,7 @@ const Index = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name.trim()) {
@@ -85,27 +85,46 @@ const Index = () => {
       return;
     }
 
-    // In a real app, you would submit this data to a backend
-    console.log("Order submitted:", { name, items: selectedItems });
-    
-    // Generate a unique key for this order
-    const orderId = `neurotech-order-${Date.now()}`;
-    
-    // Store in localStorage with a unique key
-    localStorage.setItem(orderId, JSON.stringify({ 
-      name, 
-      items: selectedItems,
-      timestamp: new Date().toISOString()
-    }));
-    
-    // Also store in the original key for backwards compatibility
-    localStorage.setItem('neurotech-order', JSON.stringify({ 
-      name, 
-      items: selectedItems,
-      timestamp: new Date().toISOString()
-    }));
-    
-    navigate('/thank-you');
+    try {
+      // Insert order into Supabase
+      const { error } = await supabase
+        .from('orders')
+        .insert({
+          name,
+          items: selectedItems,
+        });
+      
+      if (error) {
+        console.error('Error submitting order:', error);
+        toast({
+          title: "Error",
+          description: "There was a problem submitting your order. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // For backwards compatibility, still save in localStorage
+      localStorage.setItem('neurotech-order', JSON.stringify({ 
+        name, 
+        items: selectedItems,
+        timestamp: new Date().toISOString()
+      }));
+
+      toast({
+        title: "Order Submitted",
+        description: "Your order has been successfully submitted!",
+      });
+      
+      navigate('/thank-you');
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem submitting your order. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

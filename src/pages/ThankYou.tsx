@@ -4,10 +4,12 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, FileText, Calendar } from 'lucide-react';
+import { CheckCircle, FileText, Calendar, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface OrderData {
+  id: string;
   name: string;
   items: string[];
   timestamp: string;
@@ -17,6 +19,7 @@ const ThankYou = () => {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdatedOrder, setIsUpdatedOrder] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     // First try to get from localStorage for backwards compatibility
@@ -75,6 +78,43 @@ const ThankYou = () => {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteOrder = async () => {
+    if (!orderData) return;
+    
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderData.id);
+      
+      if (error) {
+        console.error('Error deleting order:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete your order. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "Order Deleted",
+        description: "Your order has been successfully deleted.",
+      });
+      
+      // Clear the local order data
+      setOrderData(null);
+      
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete your order. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -150,9 +190,20 @@ const ThankYou = () => {
                 </ul>
               </div>
               
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-4">
                 Your order has been recorded. You can update your order anytime today if needed.
               </p>
+              
+              <div className="flex justify-end">
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={deleteOrder}
+                  className="mt-2"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Order
+                </Button>
+              </div>
             </div>
           ) : (
             <p>No order information found. Please return to the main page to place an order.</p>

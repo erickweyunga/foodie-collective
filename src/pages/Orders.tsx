@@ -4,9 +4,21 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { FileText, Copy, Clipboard, RefreshCw, Calendar } from 'lucide-react';
+import { FileText, Copy, Clipboard, RefreshCw, Calendar, Trash2, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 
 interface OrderItem {
   id: string;
@@ -23,6 +35,8 @@ const Orders = () => {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [foodCounts, setFoodCounts] = useState<FoodCount>({});
   const [loading, setLoading] = useState(true);
+  const [adminPhrase, setAdminPhrase] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const isFromToday = (dateString: string): boolean => {
@@ -120,6 +134,24 @@ const Orders = () => {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          const deletedOrderId = payload.old.id;
+          
+          // Remove the order from the list
+          setOrders(prevOrders => {
+            const updatedOrders = prevOrders.filter(order => order.id !== deletedOrderId);
+            updateFoodCounts(updatedOrders);
+            return updatedOrders;
+          });
+        }
+      )
       .subscribe();   
 
     // Cleanup function to remove channel subscription
@@ -188,6 +220,121 @@ const Orders = () => {
       });
   };
 
+  // Function to delete a single order
+  const deleteOrder = async (orderId: string, userName: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+      
+      if (error) {
+        console.error('Error deleting order:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete the order. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "Order Deleted",
+        description: `${userName}'s order has been deleted.`,
+      });
+      
+      // We don't need to update the state here since we're listening for real-time DELETE events
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the order. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Function to delete all orders containing a specific phrase
+  const deleteOrdersByPhrase = async () => {
+    if (!adminPhrase.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a phrase to search for.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsDeleteDialogOpen(false);
+    
+    try {
+      // First, fetch all orders that contain the phrase
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching orders for deletion:', error);
+        toast({
+          title: "Error",
+          description: "Failed to search for orders. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        toast({
+          title: "No Orders Found",
+          description: "No orders found matching the specified phrase.",
+        });
+        return;
+      }
+      
+      // Filter orders that contain the phrase in any of the items
+      const ordersToDelete = data.filter(order => 
+        order.items.some(item => 
+          item.toLowerCase().includes(adminPhrase.toLowerCase())
+        )
+      );
+      
+      if (ordersToDelete.length === 0) {
+        toast({
+          title: "No Matching Orders",
+          description: "No orders found with items containing the specified phrase.",
+        });
+        return;
+      }
+      
+      // Delete each matching order
+      let deletedCount = 0;
+      for (const order of ordersToDelete) {
+        const { error: deleteError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', order.id);
+        
+        if (!deleteError) {
+          deletedCount++;
+        }
+      }
+      
+      toast({
+        title: "Orders Deleted",
+        description: `Successfully deleted ${deletedCount} orders containing "${adminPhrase}".`,
+      });
+      
+      // We don't need to update the state here since we're listening for real-time DELETE events
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete orders. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
@@ -228,6 +375,38 @@ const Orders = () => {
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
+          </div>
+
+          {/* Admin Delete by Phrase Feature */}
+          <div className="mt-4 mb-6">
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Lock className="mr-2 h-4 w-4" /> Admin: Delete By Item
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Orders by Item Phrase</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will delete all orders containing items that match the specified phrase.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4">
+                  <Input
+                    placeholder="Enter item phrase to delete (e.g. 'Ugali')"
+                    value={adminPhrase}
+                    onChange={(e) => setAdminPhrase(e.target.value)}
+                    className="mb-2"
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={deleteOrdersByPhrase}>Delete All Matching Orders</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </motion.div>
 
@@ -271,6 +450,7 @@ const Orders = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,6 +465,15 @@ const Orders = () => {
                       </ul>
                     </TableCell>
                     <TableCell>{formatDate(order.timestamp)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => deleteOrder(order.id, order.name)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

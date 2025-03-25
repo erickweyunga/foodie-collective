@@ -45,16 +45,7 @@ const Orders = () => {
       
       if (data) {
         setOrders(data as OrderItem[]);
-        
-        // Calculate food counts
-        const counts: FoodCount = {};
-        data.forEach(order => {
-          order.items.forEach(item => {
-            counts[item] = (counts[item] || 0) + 1;
-          });
-        });
-        
-        setFoodCounts(counts);
+        updateFoodCounts(data as OrderItem[]);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -68,9 +59,60 @@ const Orders = () => {
     }
   };
 
+  const updateFoodCounts = (orderData: OrderItem[]) => {
+    // Calculate food counts
+    const counts: FoodCount = {};
+    orderData.forEach(order => {
+      order.items.forEach(item => {
+        counts[item] = (counts[item] || 0) + 1;
+      });
+    });
+    
+    setFoodCounts(counts);
+  };
+
   useEffect(() => {
     fetchOrders();
-  }, []);
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          const newOrder = payload.new as OrderItem;
+          
+          // Add new order to the list
+          setOrders(prevOrders => [newOrder, ...prevOrders]);
+          
+          // Update food counts with the new order
+          setFoodCounts(prevCounts => {
+            const newCounts = { ...prevCounts };
+            newOrder.items.forEach(item => {
+              newCounts[item] = (newCounts[item] || 0) + 1;
+            });
+            return newCounts;
+          });
+
+          // Show notification for new order
+          toast({
+            title: "New Order Received",
+            description: `${newOrder.name} just placed an order`,
+          });
+        }
+      )
+      .subscribe();   
+
+    // Cleanup function to remove channel subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
@@ -143,7 +185,7 @@ const Orders = () => {
         >
           <h1 className="text-3xl font-bold mb-4">All Food Orders</h1>
           <p className="text-muted-foreground mb-6">
-            Here's a list of all submitted orders that can be copied and sent as needed
+            Orders update in real-time as they are submitted
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
@@ -235,7 +277,7 @@ const Orders = () => {
             <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Orders Yet</h3>
             <p className="text-muted-foreground">
-              When people submit their orders, they will appear here.
+              When people submit their orders, they will appear here in real-time.
             </p>
           </div>
         )}

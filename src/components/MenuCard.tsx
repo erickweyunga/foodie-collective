@@ -23,7 +23,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ title, selected, onSelect, index })
       <div 
         onClick={onSelect}
         className={cn(
-          "relative p-6 rounded-xl neo-shadow transition-all duration-300 cursor-pointer",
+          "relative p-6 rounded-xl neo-shadow transition-all duration-300 cursor-pointer  border border-border",
           "hover:translate-y-[-2px]",
           selected ? "ring-2 ring-primary bg-accent" : "bg-card"
         )}

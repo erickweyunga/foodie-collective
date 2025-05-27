@@ -18,9 +18,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <span className="text-primary inline-block mr-2 relative">
                 <span className="absolute -top-1 -left-1 w-full h-full bg-gradient-to-r from-orange-100 to-orange-50 rounded-full blur-md opacity-70"></span>
-                Neurotech
+                Neurotech Africa
               </span>
-              <span className="text-muted-foreground">.Africa</span>
             </Link>
           </div>
 
@@ -41,7 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <footer className="glass-morphism mt-auto">
         <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
           <p>
-            © {new Date().getFullYear()} Neurotech.Africa. All rights reserved.
+            © {new Date().getFullYear()} Neurotech Africa All rights reserved.
           </p>
         </div>
       </footer>

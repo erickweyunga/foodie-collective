@@ -1,12 +1,26 @@
-
-import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import Layout from '@/components/Layout';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { FileText, Copy, Clipboard, RefreshCw, Calendar, Trash2, Lock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import Layout from "@/components/Layout";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  FileText,
+  Copy,
+  Clipboard,
+  RefreshCw,
+  Calendar,
+  Trash2,
+  Lock,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,52 +47,56 @@ interface FoodCount {
 
 const Orders = () => {
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [adminPhrase, setAdminPhrase] = useState("");
   const [foodCounts, setFoodCounts] = useState<FoodCount>({});
   const [loading, setLoading] = useState(true);
-  const [adminPhrase, setAdminPhrase] = useState('');
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isFromToday = (dateString: string): boolean => {
     const orderDate = new Date(dateString);
     const today = new Date();
-    
-    return orderDate.getDate() === today.getDate() &&
-           orderDate.getMonth() === today.getMonth() &&
-           orderDate.getFullYear() === today.getFullYear();
+
+    return (
+      orderDate.getDate() === today.getDate() &&
+      orderDate.getMonth() === today.getMonth() &&
+      orderDate.getFullYear() === today.getFullYear()
+    );
   };
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('timestamp', { ascending: false });
-      
+        .from("orders")
+        .select("*")
+        .order("timestamp", { ascending: false });
+
       if (error) {
-        console.error('Error fetching orders:', error);
+        console.error("Error fetching orders:", error);
         toast({
           title: "Error",
           description: "Failed to load orders. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
-      
+
       if (data) {
         // Filter to only show today's orders
-        const todaysOrders = data.filter(order => isFromToday(order.timestamp));
+        const todaysOrders = data.filter((order) =>
+          isFromToday(order.timestamp)
+        );
         setOrders(todaysOrders as OrderItem[]);
         updateFoodCounts(todaysOrders as OrderItem[]);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       toast({
         title: "Error",
         description: "Failed to load orders. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -88,12 +106,12 @@ const Orders = () => {
   const updateFoodCounts = (orderData: OrderItem[]) => {
     // Calculate food counts
     const counts: FoodCount = {};
-    orderData.forEach(order => {
-      order.items.forEach(item => {
+    orderData.forEach((order) => {
+      order.items.forEach((item) => {
         counts[item] = (counts[item] || 0) + 1;
       });
     });
-    
+
     setFoodCounts(counts);
   };
 
@@ -102,26 +120,26 @@ const Orders = () => {
 
     // Subscribe to real-time changes
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel("schema-db-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders'
+          event: "INSERT",
+          schema: "public",
+          table: "orders",
         },
         (payload) => {
           const newOrder = payload.new as OrderItem;
-          
+
           // Only add the order if it's from today
           if (isFromToday(newOrder.timestamp)) {
             // Add new order to the list
-            setOrders(prevOrders => [newOrder, ...prevOrders]);
-            
+            setOrders((prevOrders) => [newOrder, ...prevOrders]);
+
             // Update food counts with the new order
-            setFoodCounts(prevCounts => {
+            setFoodCounts((prevCounts) => {
               const newCounts = { ...prevCounts };
-              newOrder.items.forEach(item => {
+              newOrder.items.forEach((item) => {
                 newCounts[item] = (newCounts[item] || 0) + 1;
               });
               return newCounts;
@@ -136,24 +154,27 @@ const Orders = () => {
         }
       )
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'orders'
+          event: "DELETE",
+          schema: "public",
+          table: "orders",
         },
         (payload) => {
+          console.log("Real-time DELETE event received:", payload);
           const deletedOrderId = payload.old.id;
-          
+
           // Remove the order from the list
-          setOrders(prevOrders => {
-            const updatedOrders = prevOrders.filter(order => order.id !== deletedOrderId);
+          setOrders((prevOrders) => {
+            const updatedOrders = prevOrders.filter(
+              (order) => order.id !== deletedOrderId
+            );
             updateFoodCounts(updatedOrders);
             return updatedOrders;
           });
         }
       )
-      .subscribe();   
+      .subscribe();
 
     // Cleanup function to remove channel subscription
     return () => {
@@ -163,24 +184,25 @@ const Orders = () => {
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return new Date(dateString).toLocaleDateString("en-US", options);
   };
 
   const copyOrdersToClipboard = () => {
     let text = "Neurotech.Africa - Food Orders\n\n";
-    
+
     orders.forEach((order, index) => {
       text += `${index + 1}. ${order.name} - ${formatDate(order.timestamp)}\n`;
-      text += `   Items: ${order.items.join(', ')}\n\n`;
+      text += `   Items: ${order.items.join(", ")}\n\n`;
     });
-    
-    navigator.clipboard.writeText(text)
+
+    navigator.clipboard
+      .writeText(text)
       .then(() => {
         toast({
           title: "Copied to clipboard",
@@ -198,14 +220,15 @@ const Orders = () => {
 
   const copySummaryToClipboard = () => {
     let text = "Neurotech.Africa - Muhtasari wa Chakula\n\n";
-    
+
     Object.entries(foodCounts)
       .sort(([, countA], [, countB]) => countB - countA)
       .forEach(([item, count]) => {
         text += `${item} ${count}\n`;
       });
-    
-    navigator.clipboard.writeText(text)
+
+    navigator.clipboard
+      .writeText(text)
       .then(() => {
         toast({
           title: "Copied to clipboard",
@@ -224,39 +247,50 @@ const Orders = () => {
   // Function to delete a single order
   const deleteOrder = async (orderId: string, userName: string) => {
     setDeletingOrderId(orderId);
-    
+
     try {
-      const { error } = await supabase
-        .from('orders')
+      console.log(
+        `Attempting to delete order: ${orderId} for user: ${userName}`
+      );
+
+      const { error, data } = await supabase
+        .from("orders")
         .delete()
-        .eq('id', orderId);
-      
+        .eq("id", orderId)
+        .select(); // Add select() to get confirmation of deleted rows
+
       if (error) {
-        console.error('Error deleting order:', error);
+        console.error("Error deleting order:", error);
         toast({
           title: "Error",
-          description: "Failed to delete the order. Please try again.",
-          variant: "destructive"
+          description: `Failed to delete the order: ${error.message}`,
+          variant: "destructive",
         });
         return;
       }
-      
+
+      console.log(`Successfully deleted order: ${orderId}`, data);
+
       toast({
         title: "Order Deleted",
         description: `${userName}'s order has been deleted.`,
       });
-      
-      // Remove the deleted order from the state immediately for better UX
-      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-      // Update food counts after deletion
-      updateFoodCounts(orders.filter(order => order.id !== orderId));
-      
+
+      // Update state and food counts together
+      setOrders((prevOrders) => {
+        const updatedOrders = prevOrders.filter(
+          (order) => order.id !== orderId
+        );
+        console.log(`Updated orders count: ${updatedOrders.length}`);
+        updateFoodCounts(updatedOrders);
+        return updatedOrders;
+      });
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Unexpected error during deletion:", error);
       toast({
         title: "Error",
         description: "Failed to delete the order. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setDeletingOrderId(null);
@@ -269,31 +303,29 @@ const Orders = () => {
       toast({
         title: "Error",
         description: "Please enter a phrase to search for.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     setIsDeleteDialogOpen(false);
     setLoading(true);
-    
+
     try {
       // First, fetch all orders that contain the phrase
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*');
-      
+      const { data, error } = await supabase.from("orders").select("*");
+
       if (error) {
-        console.error('Error fetching orders for deletion:', error);
+        console.error("Error fetching orders for deletion:", error);
         toast({
           title: "Error",
           description: "Failed to search for orders. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setLoading(false);
         return;
       }
-      
+
       if (!data || data.length === 0) {
         toast({
           title: "No Orders Found",
@@ -302,49 +334,50 @@ const Orders = () => {
         setLoading(false);
         return;
       }
-      
+
       // Filter orders that contain the phrase in any of the items
-      const ordersToDelete = data.filter(order => 
-        order.items.some(item => 
+      const ordersToDelete = data.filter((order) =>
+        order.items.some((item) =>
           item.toLowerCase().includes(adminPhrase.toLowerCase())
         )
       );
-      
+
       if (ordersToDelete.length === 0) {
         toast({
           title: "No Matching Orders",
-          description: "No orders found with items containing the specified phrase.",
+          description:
+            "No orders found with items containing the specified phrase.",
         });
         setLoading(false);
         return;
       }
-      
+
       // Delete each matching order
       let deletedCount = 0;
       for (const order of ordersToDelete) {
         const { error: deleteError } = await supabase
-          .from('orders')
+          .from("orders")
           .delete()
-          .eq('id', order.id);
-        
+          .eq("id", order.id);
+
         if (!deleteError) {
           deletedCount++;
         }
       }
-      
+
       toast({
         title: "Orders Deleted",
         description: `Successfully deleted ${deletedCount} orders containing "${adminPhrase}".`,
       });
-      
+
       // Refresh orders after bulk deletion
       fetchOrders();
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       toast({
         title: "Error",
         description: "Failed to delete orders. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setLoading(false);
     }
@@ -353,7 +386,7 @@ const Orders = () => {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -367,16 +400,16 @@ const Orders = () => {
             <Calendar className="h-4 w-4 mr-1" />
             <span>Orders reset at midnight each day</span>
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <Button 
+            <Button
               onClick={copyOrdersToClipboard}
               disabled={orders.length === 0}
             >
               <Copy className="mr-2 h-4 w-4" /> Copy All Orders
             </Button>
-            
-            <Button 
+
+            <Button
               onClick={copySummaryToClipboard}
               disabled={orders.length === 0}
               variant="secondary"
@@ -384,18 +417,20 @@ const Orders = () => {
               <Clipboard className="mr-2 h-4 w-4" /> Copy Food Summary
             </Button>
 
-            <Button
-              onClick={fetchOrders}
-              variant="outline"
-              disabled={loading}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            <Button onClick={fetchOrders} variant="outline" disabled={loading}>
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />{" "}
+              Refresh
             </Button>
           </div>
 
           {/* Admin Delete by Phrase Feature */}
           <div className="mt-4 mb-6">
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialog
+              open={isDeleteDialogOpen}
+              onOpenChange={setIsDeleteDialogOpen}
+            >
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
                   <Lock className="mr-2 h-4 w-4" /> Admin: Delete By Item
@@ -403,10 +438,12 @@ const Orders = () => {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Orders by Item Phrase</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    Delete Orders by Item Phrase
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will delete all orders containing items that match the specified phrase.
-                    This action cannot be undone.
+                    This will delete all orders containing items that match the
+                    specified phrase. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="py-4">
@@ -419,7 +456,9 @@ const Orders = () => {
                 </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={deleteOrdersByPhrase}>Delete All Matching Orders</AlertDialogAction>
+                  <AlertDialogAction onClick={deleteOrdersByPhrase}>
+                    Delete All Matching Orders
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -434,12 +473,17 @@ const Orders = () => {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="glass-morphism rounded-xl p-6 mb-8"
           >
-            <h2 className="text-xl font-bold mb-4 text-center">Muhtasari wa Chakula</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">
+              Muhtasari wa Chakula
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {Object.entries(foodCounts)
                 .sort(([, countA], [, countB]) => countB - countA)
                 .map(([item, count]) => (
-                  <div key={item} className="flex justify-between items-center p-3 border rounded-lg bg-background/50">
+                  <div
+                    key={item}
+                    className="flex justify-between items-center p-3 border rounded-lg bg-background/50"
+                  >
                     <span>{item}</span>
                     <span className="font-semibold">{count}</span>
                   </div>
@@ -482,9 +526,9 @@ const Orders = () => {
                     </TableCell>
                     <TableCell>{formatDate(order.timestamp)}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         onClick={() => deleteOrder(order.id, order.name)}
                         disabled={deletingOrderId === order.id}
                       >
@@ -505,7 +549,8 @@ const Orders = () => {
             <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Orders Today</h3>
             <p className="text-muted-foreground">
-              When people submit their orders, they will appear here in real-time.
+              When people submit their orders, they will appear here in
+              real-time.
             </p>
           </div>
         )}

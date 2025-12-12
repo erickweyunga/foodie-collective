@@ -16,15 +16,60 @@ import {
 import { CalendarDays, Star, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-const menuItems = [
-  "Wali Nyama Mchuzi",
-  "Wali Nyama Kavu",
-  "Wali Maini",
-  "Ugali Nyama",
-  "Pilau Nyama Kavu",
-  "Pilau Nyama Mchuzi",
-  "Ugali Dagaa",
+const mainDishes = [
+  "Ugali",
+  "Wali",
+  "Pilau",
+  "Chips",
 ];
+
+const sides = [
+  "Nyama",
+  "Maini",
+  "Utumbo",
+  "Dagaa",
+  "Njegere",
+  "Kokoto",
+  "Samaki (Sangara)",
+  "Pande",
+  "Mayai",
+  "Kidari",
+  "Paja",
+];
+
+// Pricing structure
+const getPriceForItem = (item: string): number => {
+  // Pilau standalone
+  if (item === "Pilau") return 4000;
+  
+  // Chips combinations
+  if (item === "Chips") return 2000; // Chips Kavu
+  if (item.includes("Chips")) {
+    if (item.includes("Mayai")) return 3000;
+    if (item.includes("Kidari") || item.includes("Paja")) return 5000;
+    return 2000;
+  }
+  
+  // Special item Pande standalone
+  if (item === "Pande") return 5000;
+  
+  // Main + Side combinations
+  if (item.includes("+")) {
+    // Fish (Sangara) combinations cost more
+    if (item.includes("Samaki (Sangara)")) return 5000;
+    // Pande combinations
+    if (item.includes("Pande")) return 5000;
+    // All other combinations
+    return 4000;
+  }
+  
+  return 0;
+};
+
+// Generate all possible combinations for order of the day
+const menuItems = mainDishes.flatMap((main) =>
+  sides.map((side) => `${main} + ${side}`)
+);
 
 // Get a random menu item for the order of the day
 const getOrderOfTheDay = () => {
@@ -38,13 +83,36 @@ const getOrderOfTheDay = () => {
 const orderOfTheDay = getOrderOfTheDay();
 
 const Index = () => {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedMain, setSelectedMain] = useState<string>("");
+  const [selectedSide, setSelectedSide] = useState<string>("");
   const [name, setName] = useState("");
   const [alreadyOrdered, setAlreadyOrdered] = useState(false);
   const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
   const [checkingOrder, setCheckingOrder] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  // Calculate total cost based on combination
+  const getCombinationPrice = () => {
+    if (!selectedMain && !selectedSide) return 0;
+    
+    // If both selected, create combination
+    if (selectedMain && selectedSide) {
+      const combination = `${selectedMain} + ${selectedSide}`;
+      return getPriceForItem(combination);
+    }
+    
+    // If only main selected
+    if (selectedMain) return getPriceForItem(selectedMain);
+    
+    // If only side selected
+    if (selectedSide) return getPriceForItem(selectedSide);
+    
+    return 0;
+  };
+  
+  const totalCost = getCombinationPrice();
+  const selectedItems = selectedMain && selectedSide ? [`${selectedMain} + ${selectedSide}`] : [];
 
   useEffect(() => {
     // Check if user has already ordered today
@@ -75,7 +143,14 @@ const Index = () => {
             setAlreadyOrdered(true);
             setExistingOrderId(data[0].id);
             // Pre-fill the selected items with the existing order
-            setSelectedItems(data[0].items);
+            if (data[0].items && data[0].items.length > 0) {
+              const orderItem = data[0].items[0];
+              if (orderItem.includes(" + ")) {
+                const [main, side] = orderItem.split(" + ");
+                setSelectedMain(main);
+                setSelectedSide(side);
+              }
+            }
           }
         } catch (error) {
           console.error("Error:", error);
@@ -88,30 +163,47 @@ const Index = () => {
     checkExistingOrder();
   }, []);
 
-  const handleMenuItemClick = (item: string) => {
-    if (selectedItems.includes(item)) {
-      setSelectedItems(selectedItems.filter((i) => i !== item));
+  const handleMainDishClick = (dish: string) => {
+    if (selectedMain === dish) {
+      setSelectedMain("");
     } else {
-      setSelectedItems([...selectedItems, item]);
+      setSelectedMain(dish);
+    }
+  };
+
+  const handleSideClick = (side: string) => {
+    if (selectedSide === side) {
+      setSelectedSide("");
+    } else {
+      setSelectedSide(side);
     }
   };
 
   const handleRemoveItem = (item: string) => {
-    setSelectedItems(selectedItems.filter((i) => i !== item));
+    setSelectedMain("");
+    setSelectedSide("");
   };
 
   const handleAddOrderOfTheDay = () => {
-    if (!selectedItems.includes(orderOfTheDay)) {
-      setSelectedItems([...selectedItems, orderOfTheDay]);
-      toast({
-        title: "Added to your order",
-        description: `${orderOfTheDay} has been added to your selection`,
-      });
-    } else {
+    const currentSelection = selectedMain && selectedSide ? `${selectedMain} + ${selectedSide}` : "";
+    
+    if (currentSelection === orderOfTheDay) {
       toast({
         title: "Already in your order",
         description: `${orderOfTheDay} is already in your selection`,
         variant: "destructive",
+      });
+      return;
+    }
+    
+    // Parse the order of the day and set main and side
+    if (orderOfTheDay.includes(" + ")) {
+      const [main, side] = orderOfTheDay.split(" + ");
+      setSelectedMain(main);
+      setSelectedSide(side);
+      toast({
+        title: "Added to your order",
+        description: `${orderOfTheDay} has been added to your selection`,
       });
     }
   };
@@ -119,7 +211,8 @@ const Index = () => {
   const handleResetOrder = () => {
     setAlreadyOrdered(false);
     setExistingOrderId(null);
-    setSelectedItems([]);
+    setSelectedMain("");
+    setSelectedSide("");
     toast({
       title: "Order Reset",
       description: "You can now place a new order for today",
@@ -138,10 +231,10 @@ const Index = () => {
       return;
     }
 
-    if (selectedItems.length === 0) {
+    if (!selectedMain || !selectedSide) {
       toast({
-        title: "No items selected",
-        description: "Please select at least one menu item",
+        title: "Incomplete order",
+        description: "Please select one main dish and one side",
         variant: "destructive",
       });
       return;
@@ -151,6 +244,7 @@ const Index = () => {
       // Save name to localStorage for future use
       localStorage.setItem("neurotech-name", name);
 
+      const orderItems = [`${selectedMain} + ${selectedSide}`];
       let operation;
 
       if (alreadyOrdered && existingOrderId) {
@@ -158,7 +252,7 @@ const Index = () => {
         operation = supabase
           .from("orders")
           .update({
-            items: selectedItems,
+            items: orderItems,
             timestamp: new Date().toISOString(), // Update timestamp to current time
           })
           .eq("id", existingOrderId);
@@ -166,7 +260,7 @@ const Index = () => {
         // Insert new order
         operation = supabase.from("orders").insert({
           name,
-          items: selectedItems,
+          items: orderItems,
         });
       }
 
@@ -188,7 +282,7 @@ const Index = () => {
         "neurotech-order",
         JSON.stringify({
           name,
-          items: selectedItems,
+          items: orderItems,
           timestamp: new Date().toISOString(),
         })
       );
@@ -300,21 +394,83 @@ const Index = () => {
               />
             </div>
 
-            <div className="space-y-3 mb-8">
-              <h2 className="text-xl font-semibold mb-4">
-                Available Menu Items
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {menuItems.map((item, index) => (
-                  <MenuCard
-                    key={item}
-                    title={item}
-                    selected={selectedItems.includes(item)}
-                    onSelect={() => handleMenuItemClick(item)}
-                    index={index}
-                  />
-                ))}
+            <div className="space-y-8 mb-8">
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h2 className="text-lg font-semibold mb-3 text-primary border-b pb-2">
+                  Main Dishes
+                </h2>
+                <p className="text-sm text-muted-foreground mb-4">Select one main dish</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {mainDishes.map((dish, index) => (
+                    <MenuCard
+                      key={dish}
+                      title={dish}
+                      selected={selectedMain === dish}
+                      onSelect={() => handleMainDishClick(dish)}
+                      index={index}
+                    />
+                  ))}
+                </div>
               </div>
+
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h2 className="text-lg font-semibold mb-3 text-primary border-b pb-2">
+                  Sides / Stews (Mboga)
+                </h2>
+                <p className="text-sm text-muted-foreground mb-4">Select one side dish</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {sides.map((side, index) => (
+                    <MenuCard
+                      key={side}
+                      title={side}
+                      selected={selectedSide === side}
+                      onSelect={() => handleSideClick(side)}
+                      index={index + mainDishes.length}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {(selectedMain || selectedSide) && (
+                <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b pb-3">
+                      <div>
+                        <h3 className="text-lg font-semibold">Your Order</h3>
+                      </div>
+                    </div>
+                    
+                    {selectedMain && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Main: {selectedMain}</span>
+                        <span className="text-sm font-medium">✓</span>
+                      </div>
+                    )}
+                    
+                    {selectedSide && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Side: {selectedSide}</span>
+                        <span className="text-sm font-medium">✓</span>
+                      </div>
+                    )}
+                    
+                    {selectedMain && selectedSide && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Combination</p>
+                            <p className="font-medium">{selectedMain} + {selectedSide}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-3xl font-bold text-primary">{totalCost.toLocaleString()}/=</p>
+                            <p className="text-xs text-muted-foreground">TZS</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-center mt-8">

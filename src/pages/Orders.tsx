@@ -45,6 +45,35 @@ interface FoodCount {
   [key: string]: number;
 }
 
+// Pricing structure (same as Index.tsx)
+const getPriceForItem = (item: string): number => {
+  // Pilau standalone
+  if (item === "Pilau") return 4000;
+  
+  // Chips combinations
+  if (item === "Chips") return 2000; // Chips Kavu
+  if (item.includes("Chips")) {
+    if (item.includes("Mayai")) return 3000;
+    if (item.includes("Kidari") || item.includes("Paja")) return 5000;
+    return 2000;
+  }
+  
+  // Special item Pande standalone
+  if (item === "Pande") return 5000;
+  
+  // Main + Side combinations
+  if (item.includes("+")) {
+    // Fish (Sangara) combinations cost more
+    if (item.includes("Samaki (Sangara)")) return 5000;
+    // Pande combinations
+    if (item.includes("Pande")) return 5000;
+    // All other combinations
+    return 4000;
+  }
+  
+  return 0;
+};
+
 const Orders = () => {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -53,6 +82,12 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Calculate total revenue for all orders
+  const totalRevenue = orders.reduce((sum, order) => {
+    const orderTotal = order.items.reduce((orderSum, item) => orderSum + getPriceForItem(item), 0);
+    return sum + orderTotal;
+  }, 0);
 
   const isFromToday = (dateString: string): boolean => {
     const orderDate = new Date(dateString);
@@ -197,9 +232,13 @@ const Orders = () => {
     let text = "Neurotech.Africa - Food Orders\n\n";
 
     orders.forEach((order, index) => {
+      const orderTotal = order.items.reduce((sum, item) => sum + getPriceForItem(item), 0);
       text += `${index + 1}. ${order.name} - ${formatDate(order.timestamp)}\n`;
-      text += `   Items: ${order.items.join(", ")}\n\n`;
+      text += `   Items: ${order.items.join(", ")}\n`;
+      text += `   Price: ${orderTotal.toLocaleString()}/= TZS\n\n`;
     });
+    
+    text += `\nTOTAL REVENUE: ${totalRevenue.toLocaleString()}/= TZS`;
 
     navigator.clipboard
       .writeText(text)
@@ -226,6 +265,9 @@ const Orders = () => {
       .forEach(([item, count]) => {
         text += `${item} ${count}\n`;
       });
+    
+    text += `\n\nTOTAL ORDERS: ${orders.length}\n`;
+    text += `TOTAL REVENUE: ${totalRevenue.toLocaleString()}/= TZS`;
 
     navigator.clipboard
       .writeText(text)
@@ -476,7 +518,7 @@ const Orders = () => {
             <h2 className="text-xl font-bold mb-4 text-center">
               Muhtasari wa Chakula
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               {Object.entries(foodCounts)
                 .sort(([, countA], [, countB]) => countB - countA)
                 .map(([item, count]) => (
@@ -488,6 +530,19 @@ const Orders = () => {
                     <span className="font-semibold">{count}</span>
                   </div>
                 ))}
+            </div>
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center bg-primary/10 p-4 rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Orders Today</p>
+                  <p className="text-2xl font-bold">{orders.length}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString()}/=</p>
+                  <p className="text-xs text-muted-foreground">TZS</p>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -509,38 +564,45 @@ const Orders = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Items</TableHead>
+                  <TableHead>Price</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.name}</TableCell>
-                    <TableCell>
-                      <ul className="list-disc pl-5">
-                        {order.items.map((item, idx) => (
-                          <li key={idx}>{item}</li>
-                        ))}
-                      </ul>
-                    </TableCell>
-                    <TableCell>{formatDate(order.timestamp)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteOrder(order.id, order.name)}
-                        disabled={deletingOrderId === order.id}
-                      >
-                        {deletingOrderId === order.id ? (
-                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {orders.map((order) => {
+                  const orderTotal = order.items.reduce((sum, item) => sum + getPriceForItem(item), 0);
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.name}</TableCell>
+                      <TableCell>
+                        <ul className="list-disc pl-5">
+                          {order.items.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </TableCell>
+                      <TableCell className="font-semibold text-primary">
+                        {orderTotal.toLocaleString()}/=
+                      </TableCell>
+                      <TableCell>{formatDate(order.timestamp)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteOrder(order.id, order.name)}
+                          disabled={deletingOrderId === order.id}
+                        >
+                          {deletingOrderId === order.id ? (
+                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </motion.div>

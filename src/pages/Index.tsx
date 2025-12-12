@@ -31,7 +31,6 @@ const sides = [
   "Njegere",
   "Kokoto",
   "Samaki (Sangara)",
-  "Pande",
   "Mayai",
   "Kidari",
   "Paja",
@@ -112,7 +111,16 @@ const Index = () => {
   };
   
   const totalCost = getCombinationPrice();
-  const selectedItems = selectedMain && selectedSide ? [`${selectedMain} + ${selectedSide}`] : [];
+  const selectedItems = selectedMain && selectedSide ? [`${selectedMain} + ${selectedSide}`] : selectedMain === "Pilau" ? ["Pilau"] : [];
+  
+  // Filter available sides based on main dish
+  const availableSides = selectedMain === "Chips" 
+    ? sides.filter(side => ["Mayai", "Kidari", "Paja"].includes(side))
+    : selectedMain === "Pilau"
+    ? [] // No sides available for Pilau
+    : (selectedMain === "Ugali" || selectedMain === "Wali")
+    ? sides.filter(side => side !== "Mayai")
+    : sides;
 
   useEffect(() => {
     // Check if user has already ordered today
@@ -167,11 +175,65 @@ const Index = () => {
     if (selectedMain === dish) {
       setSelectedMain("");
     } else {
+      // If switching to Pilau, clear side and show message
+      if (dish === "Pilau" && selectedSide) {
+        setSelectedSide("");
+        toast({
+          title: "Pilau is standalone",
+          description: "Pilau is served alone without sides (4,000/=)",
+        });
+      }
+      // If switching to Chips and current side is not valid for Chips, clear side
+      else if (dish === "Chips" && selectedSide && !["Mayai", "Kidari", "Paja"].includes(selectedSide)) {
+        setSelectedSide("");
+        toast({
+          title: "Side cleared",
+          description: "Chips can only be combined with Mayai, Kidari, or Paja",
+        });
+      }
+      // If switching to Ugali or Wali and Mayai is selected, clear side
+      else if ((dish === "Ugali" || dish === "Wali") && selectedSide === "Mayai") {
+        setSelectedSide("");
+        toast({
+          title: "Side cleared",
+          description: "Ugali and Wali cannot be combined with Mayai",
+        });
+      }
       setSelectedMain(dish);
     }
   };
 
   const handleSideClick = (side: string) => {
+    // Check if trying to select side with Pilau
+    if (selectedMain === "Pilau") {
+      toast({
+        title: "Invalid combination",
+        description: "Pilau is served alone without sides (4,000/=)",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if trying to select invalid combination with Chips
+    if (selectedMain === "Chips" && !["Mayai", "Kidari", "Paja"].includes(side)) {
+      toast({
+        title: "Invalid combination",
+        description: "Chips can only be combined with Mayai, Kidari, or Paja",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if trying to select Mayai with Ugali or Wali
+    if ((selectedMain === "Ugali" || selectedMain === "Wali") && side === "Mayai") {
+      toast({
+        title: "Invalid combination",
+        description: "Ugali and Wali cannot be combined with Mayai",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (selectedSide === side) {
       setSelectedSide("");
     } else {
@@ -231,10 +293,11 @@ const Index = () => {
       return;
     }
 
-    if (!selectedMain || !selectedSide) {
+    // Pilau can be submitted alone, others need a side
+    if (!selectedMain || (selectedMain !== "Pilau" && !selectedSide)) {
       toast({
         title: "Incomplete order",
-        description: "Please select one main dish and one side",
+        description: selectedMain === "Pilau" ? "Please select Pilau" : "Please select one main dish and one side",
         variant: "destructive",
       });
       return;
@@ -244,7 +307,7 @@ const Index = () => {
       // Save name to localStorage for future use
       localStorage.setItem("neurotech-name", name);
 
-      const orderItems = [`${selectedMain} + ${selectedSide}`];
+      const orderItems = selectedMain === "Pilau" ? ["Pilau"] : [`${selectedMain} + ${selectedSide}`];
       let operation;
 
       if (alreadyOrdered && existingOrderId) {
@@ -417,18 +480,30 @@ const Index = () => {
                 <h2 className="text-lg font-semibold mb-3 text-primary border-b pb-2">
                   Sides / Stews (Mboga)
                 </h2>
-                <p className="text-sm text-muted-foreground mb-4">Select one side dish</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {sides.map((side, index) => (
-                    <MenuCard
-                      key={side}
-                      title={side}
-                      selected={selectedSide === side}
-                      onSelect={() => handleSideClick(side)}
-                      index={index + mainDishes.length}
-                    />
-                  ))}
-                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {selectedMain === "Pilau"
+                    ? "Pilau is served alone without sides (4,000/=)"
+                    : selectedMain === "Chips" 
+                    ? "Chips can only be combined with Mayai, Kidari, or Paja" 
+                    : "Select one side dish"}
+                </p>
+                {availableSides.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {availableSides.map((side, index) => (
+                      <MenuCard
+                        key={side}
+                        title={side}
+                        selected={selectedSide === side}
+                        onSelect={() => handleSideClick(side)}
+                        index={index + mainDishes.length}
+                      />
+                    ))}
+                  </div>
+                ) : selectedMain === "Pilau" ? (
+                  <div className="text-center p-8 border-2 border-dashed rounded-lg">
+                    <p className="text-muted-foreground">Pilau is a complete meal on its own</p>
+                  </div>
+                ) : null}
               </div>
 
               {(selectedMain || selectedSide) && (
@@ -454,12 +529,16 @@ const Index = () => {
                       </div>
                     )}
                     
-                    {selectedMain && selectedSide && (
+                    {selectedMain && (selectedMain === "Pilau" || selectedSide) && (
                       <div className="pt-3 border-t">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">Combination</p>
-                            <p className="font-medium">{selectedMain} + {selectedSide}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {selectedMain === "Pilau" ? "Standalone Dish" : "Combination"}
+                            </p>
+                            <p className="font-medium">
+                              {selectedMain === "Pilau" ? "Pilau" : `${selectedMain} + ${selectedSide}`}
+                            </p>
                           </div>
                           <div className="text-right">
                             <p className="text-3xl font-bold text-primary">{totalCost.toLocaleString()}/=</p>

@@ -44,8 +44,8 @@ const getPriceForItem = (item: string): number => {
   // Chips combinations
   if (item === "Chips") return 2000; // Chips Kavu
   if (item.includes("Chips")) {
-    if (item.includes("Mayai")) return 3000;
-    if (item.includes("Kidari") || item.includes("Paja")) return 5000;
+    if (item.includes("Mayai")) return 3500;
+    if (item.includes("Kidari") || item.includes("Paja")) return 5500;
     return 2000;
   }
   
@@ -55,11 +55,13 @@ const getPriceForItem = (item: string): number => {
   // Main + Side combinations
   if (item.includes("+")) {
     // Fish (Sangara) combinations cost more
-    if (item.includes("Samaki (Sangara)")) return 5000;
+    if (item.includes("Samaki (Sangara)")) return 5500;
     // Pande combinations
-    if (item.includes("Pande")) return 5000;
+    if (item.includes("Pande")) return 5500;
+    // Ugali + Kidari or Ugali + Paja combinations
+    if (item.includes("Ugali") && (item.includes("Kidari") || item.includes("Paja"))) return 5500;
     // All other combinations
-    return 4000;
+    return 4500;
   }
   
   return 0;

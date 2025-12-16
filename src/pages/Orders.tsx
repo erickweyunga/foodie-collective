@@ -84,10 +84,11 @@ const Orders = () => {
   const { toast } = useToast();
 
   // Calculate total revenue for all orders
+  const DELIVERY_FEE = 1000;
   const totalRevenue = orders.reduce((sum, order) => {
     const orderTotal = order.items.reduce((orderSum, item) => orderSum + getPriceForItem(item), 0);
     return sum + orderTotal;
-  }, 0);
+  }, 0) + DELIVERY_FEE;
 
   const isFromToday = (dateString: string): boolean => {
     const orderDate = new Date(dateString);
@@ -542,15 +543,20 @@ text += `\nTOTAL SPEND: ${totalRevenue.toLocaleString()}/= TZS`;
                 ))}
             </div>
             <div className="border-t pt-4 mt-4">
-              <div className="flex justify-between items-center bg-primary/10 p-4 rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Orders Today</p>
-                  <p className="text-2xl font-bold">{orders.length}</p>
+              <div className="bg-primary/10 p-4 rounded-lg space-y-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Orders Today</p>
+                    <p className="text-2xl font-bold">{orders.length}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">TOTAL SPEND</p>
+                    <p className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString()}/=</p>
+                    <p className="text-xs text-muted-foreground">TZS</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString()}/=</p>
-                  <p className="text-xs text-muted-foreground">TZS</p>
+                <div className="text-center pt-2 border-t border-primary/20">
+                  <p className="text-xs text-muted-foreground italic">Delivery fee: 1,000/= (constant) Already added on Total Spend</p>
                 </div>
               </div>
             </div>

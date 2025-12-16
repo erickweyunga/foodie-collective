@@ -59,16 +59,16 @@ const getPriceForItem = (item: string): number => {
   }
   
   // Special item Pande standalone
-  if (item === "Pande") return 5000;
+  if (item === "Pande") return 5500;
   
   // Main + Side combinations
   if (item.includes("+")) {
     // Fish (Sangara) combinations cost more
-    if (item.includes("Samaki (Sangara)")) return 5000;
+    if (item.includes("Samaki (Sangara)")) return 5500;
     // Pande combinations
     if (item.includes("Pande")) return 5000;
     // All other combinations
-    return 4000;
+    return 4500;
   }
   
   return 0;
@@ -231,14 +231,24 @@ const Orders = () => {
   const copyOrdersToClipboard = () => {
     let text = "Neurotech.Africa - Food Orders\n\n";
 
-    orders.forEach((order, index) => {
-      const orderTotal = order.items.reduce((sum, item) => sum + getPriceForItem(item), 0);
-      text += `${index + 1}. ${order.name} - ${formatDate(order.timestamp)}\n`;
-      text += `   Items: ${order.items.join(", ")}\n`;
-      text += `   Price: ${orderTotal.toLocaleString()}/= TZS\n\n`;
-    });
-    
-    text += `\nTOTAL REVENUE: ${totalRevenue.toLocaleString()}/= TZS`;
+   const DELIVERY_FEE = 1000;
+
+orders.forEach((order, index) => {
+  const itemsTotal = order.items.reduce(
+    (sum, item) => sum + getPriceForItem(item),
+    0
+  );
+
+  const orderTotal = itemsTotal + DELIVERY_FEE;
+
+  text += `${index + 1}. ${order.name} - ${formatDate(order.timestamp)}\n`;
+  text += `   Items: ${order.items.join(", ")}\n`;
+  text += `   Items Total: ${itemsTotal.toLocaleString()}/= TZS\n`;
+  text += `   Delivery Fee: ${DELIVERY_FEE.toLocaleString()}/= TZS\n`;
+  text += `   Order Total: ${orderTotal.toLocaleString()}/= TZS\n\n`;
+});
+
+text += `\nTOTAL SPEND: ${totalRevenue.toLocaleString()}/= TZS`;
 
     navigator.clipboard
       .writeText(text)

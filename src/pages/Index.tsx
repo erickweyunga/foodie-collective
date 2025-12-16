@@ -44,13 +44,13 @@ const getPriceForItem = (item: string): number => {
   // Chips combinations
   if (item === "Chips") return 2000; // Chips Kavu
   if (item.includes("Chips")) {
-    if (item.includes("Mayai")) return 3500;
-    if (item.includes("Kidari") || item.includes("Paja")) return 5500;
+    if (item.includes("Mayai")) return 3000;
+    if (item.includes("Kidari") || item.includes("Paja")) return 5000;
     return 2000;
   }
   
   // Special item Pande standalone
-  if (item === "Pande") return 5000;
+  if (item === "Pande") return 5500;
   
   // Main + Side combinations
   if (item.includes("+")) {

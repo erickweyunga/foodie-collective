@@ -278,7 +278,7 @@ text += `\nTOTAL SPEND: ${totalRevenue.toLocaleString()}/= TZS`;
       });
     
     text += `\n\nTOTAL ORDERS: ${orders.length}\n`;
-    text += `TOTAL REVENUE: ${totalRevenue.toLocaleString()}/= TZS`;
+    text += `TOTAL SPEND + DELIVERY FEE: ${totalRevenue.toLocaleString()}/= TZS`;
 
     navigator.clipboard
       .writeText(text)
